@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,14 +34,8 @@ interface CartItem extends Product {
   selectedSize: string;
 }
 
-const reviews: Review[] = [
-  { id: 1, productId: 1, userName: 'Анна К.', rating: 5, comment: 'Прекрасный свитер! Очень мягкий и теплый, как раз то что нужно на осень.', date: '15.09.2024' },
-  { id: 2, productId: 1, userName: 'Михаил С.', rating: 4, comment: 'Качественная вещь, размер подошел идеально. Рекомендую!', date: '12.09.2024' },
-  { id: 3, productId: 2, userName: 'Елена В.', rating: 5, comment: 'Самые удобные джинсы! Отличная посадка и материал.', date: '10.09.2024' },
-  { id: 4, productId: 2, userName: 'Дмитрий М.', rating: 4, comment: 'Хорошие джинсы за свою цену. Носятся уже полгода.', date: '08.09.2024' },
-  { id: 5, productId: 3, userName: 'Ольга П.', rating: 5, comment: 'Рубашка супер! Не мнется и приятная к телу.', date: '05.09.2024' },
-  { id: 6, productId: 4, userName: 'Артем К.', rating: 4, comment: 'Стильная кофта, хорошо сидит. Буду заказывать еще.', date: '03.09.2024' },
-];
+// URL бэкенд API для отзывов
+const REVIEWS_API_URL = 'https://functions.poehali.dev/af93f244-5542-4621-b801-973a200d26bc';
 
 const products: Product[] = [
   { id: 1, name: 'Уютный свитер', price: 3990, image: '/img/61f80bd2-7791-48b5-9e5c-fc2ff54f9ccf.jpg', category: 'Свитеры', size: ['S', 'M', 'L', 'XL'], description: 'Мягкий и теплый свитер из натурального хлопка', rating: 4.5, reviewCount: 12 },
@@ -55,9 +49,67 @@ function Index() {
   const [favorites, setFavorites] = useState<number[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Все');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [productReviews, setProductReviews] = useState<Review[]>(reviews);
+  const [productReviews, setProductReviews] = useState<Record<number, Review[]>>({});
+  const [productStats, setProductStats] = useState<Record<number, {averageRating: number, totalReviews: number}>>({});
 
   const categories = ['Все', 'Свитеры', 'Джинсы', 'Рубашки', 'Кофты'];
+
+  // Загрузка отзывов из API
+  const loadReviews = async (productId: number) => {
+    try {
+      const response = await fetch(`${REVIEWS_API_URL}?product_id=${productId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setProductReviews(prev => ({
+          ...prev,
+          [productId]: data.reviews || []
+        }));
+        setProductStats(prev => ({
+          ...prev,
+          [productId]: {
+            averageRating: data.average_rating || 0,
+            totalReviews: data.total_reviews || 0
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading reviews:', error);
+    }
+  };
+
+  // Добавление нового отзыва
+  const addReview = async (productId: number, userName: string, rating: number, comment: string) => {
+    try {
+      const response = await fetch(REVIEWS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          user_name: userName,
+          rating: rating,
+          comment: comment
+        })
+      });
+      
+      if (response.ok) {
+        // Перезагружаем отзывы после добавления
+        await loadReviews(productId);
+      } else {
+        console.error('Failed to add review');
+      }
+    } catch (error) {
+      console.error('Error adding review:', error);
+    }
+  };
+
+  // Загрузка отзывов при первом открытии
+  useEffect(() => {
+    products.forEach(product => {
+      loadReviews(product.id);
+    });
+  }, []);
 
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === 'Все' || product.category === selectedCategory;
@@ -95,17 +147,7 @@ function Index() {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  const addReview = (productId: number, userName: string, rating: number, comment: string) => {
-    const newReview: Review = {
-      id: Math.max(...productReviews.map(r => r.id)) + 1,
-      productId,
-      userName,
-      rating,
-      comment,
-      date: new Date().toLocaleDateString('ru-RU')
-    };
-    setProductReviews(prev => [newReview, ...prev]);
-  };
+
 
   const ProductCard = ({ product }: { product: Product }) => {
     const [selectedSize, setSelectedSize] = useState<string>(product.size[0]);
@@ -113,9 +155,9 @@ function Index() {
     const [reviewRating, setReviewRating] = useState<number>(5);
     const [reviewComment, setReviewComment] = useState<string>('');
     
-    const handleSubmitReview = () => {
+    const handleSubmitReview = async () => {
       if (reviewName.trim() && reviewComment.trim()) {
-        addReview(product.id, reviewName.trim(), reviewRating, reviewComment.trim());
+        await addReview(product.id, reviewName.trim(), reviewRating, reviewComment.trim());
         setReviewName('');
         setReviewRating(5);
         setReviewComment('');
@@ -157,7 +199,7 @@ function Index() {
           </div>
           
           {/* Rating and Reviews */}
-          {product.rating && (
+          {productStats[product.id] && productStats[product.id].totalReviews > 0 && (
             <div className="flex items-center gap-2 mb-3">
               <div className="flex items-center">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -165,7 +207,7 @@ function Index() {
                     key={star}
                     name="Star"
                     size={16}
-                    className={star <= Math.round(product.rating!) 
+                    className={star <= Math.round(productStats[product.id].averageRating) 
                       ? "fill-yellow-400 text-yellow-400" 
                       : "text-muted-foreground"
                     }
@@ -173,7 +215,7 @@ function Index() {
                 ))}
               </div>
               <span className="text-sm text-muted-foreground">
-                {product.rating} ({product.reviewCount} отзывов)
+                {productStats[product.id].averageRating.toFixed(1)} ({productStats[product.id].totalReviews} отзывов)
               </span>
             </div>
           )}
@@ -209,9 +251,14 @@ function Index() {
           
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full" size="sm">
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                size="sm"
+                onClick={() => loadReviews(product.id)}
+              >
                 <Icon name="MessageSquare" size={16} className="mr-2" />
-                Отзывы ({productReviews.filter(r => r.productId === product.id).length})
+                Отзывы ({productStats[product.id]?.totalReviews || 0})
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -273,9 +320,8 @@ function Index() {
                 <div>
                   <h4 className="font-semibold mb-4">Отзывы покупателей</h4>
                   <div className="space-y-4">
-                    {productReviews
-                      .filter(review => review.productId === product.id)
-                      .map(review => (
+                    {productReviews[product.id] && productReviews[product.id].length > 0 ? (
+                      productReviews[product.id].map(review => (
                         <div key={review.id} className="border rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
@@ -299,7 +345,11 @@ function Index() {
                           <p className="text-sm leading-relaxed">{review.comment}</p>
                         </div>
                       ))
-                    }
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        Пока нет отзывов об этом товаре. Будьте первым!
+                      </p>
+                    )}
                     
                     {productReviews.filter(r => r.productId === product.id).length === 0 && (
                       <div className="text-center py-8">

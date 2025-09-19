@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "Get reviews for product",
+      "method": "GET",
+      "path": "/?product_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "reviews": "array",
+        "average_rating": "number",
+        "total_reviews": "number"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Add new review",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "product_id": 1,
+        "user_name": "Test User",
+        "rating": 5,
+        "comment": "Great product!"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "success": true,
+        "review_id": "number",
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Handle missing product_id",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
