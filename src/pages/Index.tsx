@@ -8,6 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 
+interface Review {
+  id: number;
+  productId: number;
+  userName: string;
+  rating: number;
+  comment: string;
+  date: string;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -16,6 +25,8 @@ interface Product {
   category: string;
   size: string[];
   description: string;
+  rating?: number;
+  reviewCount?: number;
 }
 
 interface CartItem extends Product {
@@ -23,11 +34,20 @@ interface CartItem extends Product {
   selectedSize: string;
 }
 
+const reviews: Review[] = [
+  { id: 1, productId: 1, userName: 'Анна К.', rating: 5, comment: 'Прекрасный свитер! Очень мягкий и теплый, как раз то что нужно на осень.', date: '15.09.2024' },
+  { id: 2, productId: 1, userName: 'Михаил С.', rating: 4, comment: 'Качественная вещь, размер подошел идеально. Рекомендую!', date: '12.09.2024' },
+  { id: 3, productId: 2, userName: 'Елена В.', rating: 5, comment: 'Самые удобные джинсы! Отличная посадка и материал.', date: '10.09.2024' },
+  { id: 4, productId: 2, userName: 'Дмитрий М.', rating: 4, comment: 'Хорошие джинсы за свою цену. Носятся уже полгода.', date: '08.09.2024' },
+  { id: 5, productId: 3, userName: 'Ольга П.', rating: 5, comment: 'Рубашка супер! Не мнется и приятная к телу.', date: '05.09.2024' },
+  { id: 6, productId: 4, userName: 'Артем К.', rating: 4, comment: 'Стильная кофта, хорошо сидит. Буду заказывать еще.', date: '03.09.2024' },
+];
+
 const products: Product[] = [
-  { id: 1, name: 'Уютный свитер', price: 3990, image: '/img/61f80bd2-7791-48b5-9e5c-fc2ff54f9ccf.jpg', category: 'Свитеры', size: ['S', 'M', 'L', 'XL'], description: 'Мягкий и теплый свитер из натурального хлопка' },
-  { id: 2, name: 'Комфортные джинсы', price: 4590, image: '/img/dd858c77-fcc3-4335-b012-1760f75889f5.jpg', category: 'Джинсы', size: ['28', '30', '32', '34'], description: 'Удобные джинсы с эластаном для максимального комфорта' },
-  { id: 3, name: 'Мягкая рубашка', price: 2890, image: '/img/61f80bd2-7791-48b5-9e5c-fc2ff54f9ccf.jpg', category: 'Рубашки', size: ['S', 'M', 'L'], description: 'Легкая рубашка из органического хлопка' },
-  { id: 4, name: 'Теплая кофта', price: 3290, image: '/img/dd858c77-fcc3-4335-b012-1760f75889f5.jpg', category: 'Кофты', size: ['S', 'M', 'L', 'XL'], description: 'Стильная кофта для повседневной носки' },
+  { id: 1, name: 'Уютный свитер', price: 3990, image: '/img/61f80bd2-7791-48b5-9e5c-fc2ff54f9ccf.jpg', category: 'Свитеры', size: ['S', 'M', 'L', 'XL'], description: 'Мягкий и теплый свитер из натурального хлопка', rating: 4.5, reviewCount: 12 },
+  { id: 2, name: 'Комфортные джинсы', price: 4590, image: '/img/dd858c77-fcc3-4335-b012-1760f75889f5.jpg', category: 'Джинсы', size: ['28', '30', '32', '34'], description: 'Удобные джинсы с эластаном для максимального комфорта', rating: 4.7, reviewCount: 8 },
+  { id: 3, name: 'Мягкая рубашка', price: 2890, image: '/img/61f80bd2-7791-48b5-9e5c-fc2ff54f9ccf.jpg', category: 'Рубашки', size: ['S', 'M', 'L'], description: 'Легкая рубашка из органического хлопка', rating: 4.8, reviewCount: 5 },
+  { id: 4, name: 'Теплая кофта', price: 3290, image: '/img/dd858c77-fcc3-4335-b012-1760f75889f5.jpg', category: 'Кофты', size: ['S', 'M', 'L', 'XL'], description: 'Стильная кофта для повседневной носки', rating: 4.3, reviewCount: 7 },
 ];
 
 function Index() {
@@ -35,6 +55,7 @@ function Index() {
   const [favorites, setFavorites] = useState<number[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Все');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [productReviews, setProductReviews] = useState<Review[]>(reviews);
 
   const categories = ['Все', 'Свитеры', 'Джинсы', 'Рубашки', 'Кофты'];
 
@@ -74,8 +95,32 @@ function Index() {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
+  const addReview = (productId: number, userName: string, rating: number, comment: string) => {
+    const newReview: Review = {
+      id: Math.max(...productReviews.map(r => r.id)) + 1,
+      productId,
+      userName,
+      rating,
+      comment,
+      date: new Date().toLocaleDateString('ru-RU')
+    };
+    setProductReviews(prev => [newReview, ...prev]);
+  };
+
   const ProductCard = ({ product }: { product: Product }) => {
     const [selectedSize, setSelectedSize] = useState<string>(product.size[0]);
+    const [reviewName, setReviewName] = useState<string>('');
+    const [reviewRating, setReviewRating] = useState<number>(5);
+    const [reviewComment, setReviewComment] = useState<string>('');
+    
+    const handleSubmitReview = () => {
+      if (reviewName.trim() && reviewComment.trim()) {
+        addReview(product.id, reviewName.trim(), reviewRating, reviewComment.trim());
+        setReviewName('');
+        setReviewRating(5);
+        setReviewComment('');
+      }
+    };
     
     return (
       <Card className="group hover:shadow-lg transition-all duration-300 animate-fade-in">
@@ -111,6 +156,28 @@ function Index() {
             </span>
           </div>
           
+          {/* Rating and Reviews */}
+          {product.rating && (
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Icon
+                    key={star}
+                    name="Star"
+                    size={16}
+                    className={star <= Math.round(product.rating!) 
+                      ? "fill-yellow-400 text-yellow-400" 
+                      : "text-muted-foreground"
+                    }
+                  />
+                ))}
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {product.rating} ({product.reviewCount} отзывов)
+              </span>
+            </div>
+          )}
+          
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium mb-2 block">Размер:</label>
@@ -131,7 +198,7 @@ function Index() {
           </div>
         </CardContent>
         
-        <CardFooter className="p-4 pt-0">
+        <CardFooter className="p-4 pt-0 space-y-2">
           <Button 
             className="w-full font-medium"
             onClick={() => addToCart(product, selectedSize)}
@@ -139,6 +206,113 @@ function Index() {
             <Icon name="ShoppingCart" size={18} className="mr-2" />
             Добавить в корзину
           </Button>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="w-full" size="sm">
+                <Icon name="MessageSquare" size={16} className="mr-2" />
+                Отзывы ({productReviews.filter(r => r.productId === product.id).length})
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Отзывы о товаре: {product.name}</DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                {/* Add Review Form */}
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-3">Написать отзыв</h4>
+                  <div className="space-y-3">
+                    <Input 
+                      placeholder="Ваше имя" 
+                      value={reviewName}
+                      onChange={(e) => setReviewName(e.target.value)}
+                    />
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Оценка:</label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Button
+                            key={star}
+                            variant="ghost"
+                            size="sm"
+                            className="p-1 h-auto"
+                            onClick={() => setReviewRating(star)}
+                          >
+                            <Icon 
+                              name="Star" 
+                              size={20} 
+                              className={star <= reviewRating 
+                                ? "fill-yellow-400 text-yellow-400" 
+                                : "text-muted-foreground hover:text-yellow-400"
+                              } 
+                            />
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <Textarea 
+                      placeholder="Ваш отзыв о товаре" 
+                      rows={3}
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                    />
+                    <Button 
+                      className="w-full" 
+                      onClick={handleSubmitReview}
+                      disabled={!reviewName.trim() || !reviewComment.trim()}
+                    >
+                      <Icon name="Send" size={16} className="mr-2" />
+                      Отправить отзыв
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Reviews List */}
+                <div>
+                  <h4 className="font-semibold mb-4">Отзывы покупателей</h4>
+                  <div className="space-y-4">
+                    {productReviews
+                      .filter(review => review.productId === product.id)
+                      .map(review => (
+                        <div key={review.id} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{review.userName}</span>
+                              <div className="flex">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Icon
+                                    key={star}
+                                    name="Star"
+                                    size={14}
+                                    className={star <= review.rating 
+                                      ? "fill-yellow-400 text-yellow-400" 
+                                      : "text-muted-foreground"
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <span className="text-sm text-muted-foreground">{review.date}</span>
+                          </div>
+                          <p className="text-sm leading-relaxed">{review.comment}</p>
+                        </div>
+                      ))
+                    }
+                    
+                    {productReviews.filter(r => r.productId === product.id).length === 0 && (
+                      <div className="text-center py-8">
+                        <Icon name="MessageSquare" size={48} className="mx-auto text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">Пока нет отзывов об этом товаре</p>
+                        <p className="text-sm text-muted-foreground">Будьте первым, кто оставит отзыв!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardFooter>
       </Card>
     );
